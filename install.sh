@@ -1,0 +1,38 @@
+#!/bin/bash
+
+# Make script fail if anything goes wrong
+set -euo pipefail
+
+# Navigate into the directory
+ROMAN_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+cd $ROMAN_DIR
+
+# Install gdown if not already installed
+pip install --no-cache-dir gdown
+
+# Install CLIPPER
+git submodule update --init --recursive
+mkdir dependencies/clipper/build
+cd dependencies/clipper/build
+cmake .. && make && make pip-install
+
+# Install Kimera-RPGO
+mkdir $ROMAN_DIR/dependencies/Kimera-RPGO/build
+cd $ROMAN_DIR/dependencies/Kimera-RPGO/build
+cmake .. && make
+
+# Install robotdatapy
+cd $ROMAN_DIR/dependencies/robotdatapy
+pip install --upgrade setuptools
+pip install --upgrade pip wheel setuptools
+pip install --no-cache-dir .
+
+# pip install
+cd $ROMAN_DIR
+pip install --no-build-isolation --no-cache-dir .
+
+# download weights
+mkdir -p $ROMAN_DIR/weights
+cd $ROMAN_DIR/weights
+wget https://github.com/WongKinYiu/yolov7/releases/download/v0.1/yolov7.pt
+gdown 'https://drive.google.com/uc?id=1m1sjY4ihXBU1fZXdQ-Xdj-mDltW-2Rqv'

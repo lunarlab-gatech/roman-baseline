@@ -1,0 +1,12 @@
+[submodule "dependencies/clipper"]
+	path = dependencies/clipper
+	url = https://github.com/mit-acl/clipper.git
+	branch = roman
+[submodule "dependencies/Kimera-RPGO"]
+	path = dependencies/Kimera-RPGO
+	url = https://github.com/lunarlab-gatech/Kimera-RPGO.git
+	branch = main
+[submodule "dependencies/robotdatapy"]
+	path = dependencies/robotdatapy
+	url = https://github.com/lunarlab-gatech/robotdatapy.git
+	branch = main

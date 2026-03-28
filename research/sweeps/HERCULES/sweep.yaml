@@ -1,0 +1,30 @@
+program: research/run_sweep.py
+method: grid
+
+parameters:
+  override_dictionary:
+    values:
+      - path_params:
+          dataset_version_number: "V2.4.F"
+        data_params:
+          runs: ["Husky1", "Husky2"]
+      - path_params:
+          dataset_version_number: "V2.4.F"
+        data_params:
+          runs: ["Husky1", "Drone1"]
+      - path_params:
+          dataset_version_number: "V2.4.F"
+        data_params:
+          runs: ["Husky1", "Drone2"]
+      - path_params:
+          dataset_version_number: "V2.4.F"
+        data_params:
+          runs: ["Husky2", "Drone1"]
+      - path_params:
+          dataset_version_number: "V2.4.F"
+        data_params:
+          runs: ["Husky2", "Drone2"]
+      - path_params:
+          dataset_version_number: "V2.4.F"
+        data_params:
+          runs: ["Drone1", "Drone2"]

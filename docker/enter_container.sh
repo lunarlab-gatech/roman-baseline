@@ -1,0 +1,1 @@
+docker start roman && docker exec -it roman /bin/bash
