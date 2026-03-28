@@ -1,8 +1,4 @@
 # ROMAN
-
-[![Unit Tests](https://github.com/lunarlab-gatech/roman/actions/workflows/python_test.yaml/badge.svg?branch=echelon)](https://github.com/lunarlab-gatech/roman/actions/workflows/python_test.yaml)
-[![Coverage Status](https://coveralls.io/repos/github/lunarlab-gatech/roman/badge.svg?branch=echelon)](https://coveralls.io/github/lunarlab-gatech/roman?branch=echelon)
-
 Our fork of the [ROMAN](https://github.com/mit-acl/roman) repository for evaluation as a baseline running on the HERCULES dataset.
 
 ## Install
@@ -70,7 +66,7 @@ wandb sweep --entity <wandb_entity_name> --project <project_name> <sweep YAML co
 
 This command will give a new command that will execute the sweep.
 
-#### Note on Parameters
+#### Note on Parameters (May be slightly outdated)
 
 In order to adapt ROMAN to work successfully on HERCULES, two types of parameters were changed:
 - 1. Robot parameters, or those that would always have to change due to differences in the robots we are using. 
