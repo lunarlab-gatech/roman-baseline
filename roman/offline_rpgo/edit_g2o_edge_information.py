@@ -93,10 +93,13 @@ def edit_g2o_edge_information(
         v1 = int(line_data[1])
         v2 = int(line_data[2])
         
-        if odometry and np.abs(v1 - v2) != 1:
+        prev_line = g2o_lines[i - 1].strip() if i > 0 else ""
+        has_lc_marker = prev_line.startswith("# LC:")
+
+        if odometry and (has_lc_marker or np.abs(v1 - v2) != 1):
             ret.append(line)
             continue
-        elif loop_closures and np.abs(v1 - v2) == 1:
+        elif loop_closures and not has_lc_marker and np.abs(v1 - v2) == 1:
             ret.append(line)
             continue
         

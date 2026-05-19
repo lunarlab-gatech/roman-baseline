@@ -307,7 +307,8 @@ def run_slam(param_dir: str, output_dir: str | None, wandb_project: str, max_tim
         g2o_fusion_config = create_config(robots=system_params.data_params.runs, 
             odometry_g2o_dir=os.path.join(output_path, "offline_rpgo/dense"),
             submap_align_dir=os.path.join(output_path, "align"), align_file_name="align")
-        g2o_file_fusion(g2o_fusion_config, dense_g2o_file, thresh=system_params.num_req_assoc)
+        g2o_file_fusion(g2o_fusion_config, dense_g2o_file, thresh=system_params.num_req_assoc,
+                        add_lc_comment_markers=True)
 
         # Add loop closures to odometry g2o files
         if system_params.offline_rpgo_params.sparsified:
@@ -318,6 +319,7 @@ def run_slam(param_dir: str, output_dir: str | None, wandb_project: str, max_tim
                 vertex_times_reference=odom_sparse_all_time_file,
                 vertex_times_extra_lc=odom_dense_all_time_file,
                 output_file=final_g2o_file,
+                add_lc_comment_markers=True,
             )
         else:
             final_g2o_file = dense_g2o_file

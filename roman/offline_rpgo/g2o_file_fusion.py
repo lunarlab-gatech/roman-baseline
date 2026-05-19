@@ -41,7 +41,8 @@ def reformat_g2o_vertex_lines(file, letter):
     return output_lines
             
 
-def reformat_g2o_edge_lines(file, letter1, letter2, thresh=None, lc=False, self_lc=False):
+def reformat_g2o_edge_lines(file, letter1, letter2, thresh=None, lc=False, self_lc=False,
+                             add_lc_comment_markers=False):
     output_lines = []
 
     with open(os.path.expandvars(file), 'r') as f:
@@ -53,11 +54,16 @@ def reformat_g2o_edge_lines(file, letter1, letter2, thresh=None, lc=False, self_
             line = line.split()
             assert (line[0] == 'EDGE_SE3:QUAT' and len(line) == 31) or \
                     (line[0] == 'VERTEX_SE3:QUAT' and len(line) == 9), f"Invalid line: {line}"
-                    
+
             if line[0] == 'VERTEX_SE3:QUAT':
                 continue
-            
+
             if self_lc: # make sure we only add self loop closures once
+                # NOTE: this condition is bugged and never fires. The align.g2o format uses
+                # letter-prefixed vertices ("a<idx>" vs "b<idx>"), and since 'a' < 'b'
+                # lexicographically, line[1] >= line[2] is always False regardless of the
+                # numeric indices. Deduplication is handled upstream in submap_align.py
+                # by skipping i > j pairs when single_robot_lc=True.
                 if line[1] >= line[2]:
                     continue
             if lc: # filter out loop closures with less than a certain number of associations
@@ -71,7 +77,9 @@ def reformat_g2o_edge_lines(file, letter1, letter2, thresh=None, lc=False, self_
             line[2] = ''.join(ch for ch in line[2] if ch.isdigit())
             line[1] = gtsam.symbol(letter1, int(line[1]))
             line[2] = gtsam.symbol(letter2, int(line[2]))
-            
+
+            if lc and add_lc_comment_markers:
+                output_lines.append("# LC:")
             output_lines.append(format_g2o_line(line))
     return output_lines
 
@@ -104,16 +112,20 @@ def create_config(robots, odometry_g2o_dir, submap_align_dir=None, align_file_na
 def g2o_file_fusion(
     config: dict,
     output: str,
-    thresh: int = None
+    thresh: int = None,
+    add_lc_comment_markers: bool = False,
 ):
     """
-    Fuses a series of single robot odometry g2o files and multi-robot/single-robot 
+    Fuses a series of single robot odometry g2o files and multi-robot/single-robot
         loop closure g2o files into a single g2o file.
     Args:
         output (str): Output file path.
-        thresh (int, optional): _description_. Defaults to None.
+        thresh (int, optional): Minimum association count threshold for loop closures. Defaults to None.
+        add_lc_comment_markers (bool): If True, write a '# LC:' line before each loop closure edge
+            so downstream readers can identify LCs without relying on vertex-index adjacency.
+            Defaults to False.
     """
-    
+
     robot_letters = {r['robot']: r['letter'] for r in config['robots']}
 
     output_lines = []
@@ -124,19 +136,22 @@ def g2o_file_fusion(
         letter = robot_letters[odom_config['robot']]
         output_lines += reformat_g2o_edge_lines(odom_file, letter, letter, thresh, lc=False)
         output_lines += reformat_g2o_vertex_lines(odom_file, letter)
-        
-        
+
     # add single robot loop closures
     for single_lc_config in config['single_lc']:
         lc_file = single_lc_config['file']
         letter = robot_letters[single_lc_config['robot']]
-        output_lines += reformat_g2o_edge_lines(lc_file, letter, letter, thresh, lc=True, self_lc=True)
+        output_lines += reformat_g2o_edge_lines(
+            lc_file, letter, letter, thresh, lc=True, self_lc=True,
+            add_lc_comment_markers=add_lc_comment_markers)
 
     # add multi robot loop closures
     for multi_lc_config in config['multi_lc']:
         lc_file = multi_lc_config['file']
         letters = [robot_letters[multi_lc_config['robot1']], robot_letters[multi_lc_config['robot2']]]
-        output_lines += reformat_g2o_edge_lines(lc_file, letters[0], letters[1], thresh, lc=True)
+        output_lines += reformat_g2o_edge_lines(
+            lc_file, letters[0], letters[1], thresh, lc=True,
+            add_lc_comment_markers=add_lc_comment_markers)
 
     with open(output, 'w') as f:
         for line in output_lines:

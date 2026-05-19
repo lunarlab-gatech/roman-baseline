@@ -93,7 +93,7 @@ def plot_g2o(
             if not params.intra and r1 == r2: # Skip intra-robot loop closures
                 continue
             if np.abs(v2 - v1) == 1:
-                continue
+                continue  # assumes adjacent-index == odometry; can incorrectly drop LC edges that remapped to adjacent sparse keyframes
 
             # determine if inlier or outlier
             T_12_lc = xyz_quat_to_transform(np.array([float(x) for x in edge[3:6]]), 

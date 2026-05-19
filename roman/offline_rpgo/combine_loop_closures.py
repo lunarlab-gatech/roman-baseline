@@ -124,7 +124,10 @@ def extract_additional_lc(
                                   # time to vertex 1 in the extra_lc time
         T_p0r_p1r = inv(T_p0e_p0r) @ T_p0e_p1e @ T_p1e_p1r
 
-        # 3d: Add new loop closure object
+        # 3d: Add new loop closure object (skip self-loops — both endpoints remapped to same sparse vertex)
+        if vxs_ref[0] == vxs_ref[1]:
+            continue
+
         extra_lc.append(LoopClosure(
             vertex0=vxs_ref[0],
             vertex1=vxs_ref[1],
@@ -137,11 +140,12 @@ def extract_additional_lc(
     return extra_lc
 
 def combine_loop_closures(
-    g2o_reference: str, 
-    g2o_extra_lc: str, 
-    vertex_times_reference: str, 
+    g2o_reference: str,
+    g2o_extra_lc: str,
+    vertex_times_reference: str,
     vertex_times_extra_lc: str,
-    output_file: str = None
+    output_file: str = None,
+    add_lc_comment_markers: bool = False,
 ) -> List[str]:
     """
     Combine two g2o files with timestamps into one g2o file with additional loop closures.
@@ -151,6 +155,9 @@ def combine_loop_closures(
         g2o_extra_lc (str): Path to g2o file with additional loop closures.
         vertex_times_reference (str): Path to the file containing timestamps for the vertices in the main g2o file.
         vertex_times_extra_lc (str): Path to the file containing timestamps for the vertices in the g2o file with additional loop closures.
+        add_lc_comment_markers (bool): If True, write a "# LC:" comment line before each loop closure
+            edge so that downstream readers can distinguish loop closures from odometry without relying
+            on vertex-index adjacency. Defaults to False.
 
     Returns:
         List[str]: List of lines in the new g2o file.
@@ -190,11 +197,13 @@ def combine_loop_closures(
 
     # 2c: Extract loop closures from the second g2o file
     loop_closures = []
-    for line in g2o_lines_split_elc:
+    for i, line in enumerate(g2o_lines_split_elc):
         if line[0] == 'EDGE_SE3:QUAT':
             vertex0 = int(line[1])
             vertex1 = int(line[2])
-            if np.abs(vertex0 - vertex1) == 1:
+            prev_line = g2o_lines_elc[i - 1].strip() if i > 0 else ""
+            has_lc_marker = prev_line.startswith("# LC:")
+            if not has_lc_marker and np.abs(vertex0 - vertex1) == 1:
                 continue
             vertex0_time = vt_elc[vertex0]
             vertex1_time = vt_elc[vertex1]
@@ -208,7 +217,14 @@ def combine_loop_closures(
     extra_lc = extract_additional_lc(loop_closures, pd_ref, pd_elc, tv_ref)
 
     # step 4: return the new g2o file lines
-    g2o_file_lines = g2o_lines_ref + ["# NEW LOOP CLOSURES"] + [str(lc) for lc in extra_lc]
+    if add_lc_comment_markers:
+        lc_lines = []
+        for lc in extra_lc:
+            lc_lines.append("# LC:")
+            lc_lines.append(str(lc))
+    else:
+        lc_lines = [str(lc) for lc in extra_lc]
+    g2o_file_lines = g2o_lines_ref + ["# NEW LOOP CLOSURES"] + lc_lines
 
     # step 5: write to file
     if output_file is not None:
