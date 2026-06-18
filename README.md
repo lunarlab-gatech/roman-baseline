@@ -10,10 +10,7 @@ Make sure to install:
 
 Then, clone this repository into a desired location on your computer.
 
-After that, navigate to the `docker` directory. Log in to the user that you want the docker file to create in the container. Then, edit the `DOCKERFILE` to update these lines:
-- `ARG USERNAME=`: Your username
-- `ARG USER_UID=`: Output of `echo $UID`
-- `ARG USER_GID=`: Output of `id -g`
+After that, navigate to the `docker` directory. Log in to the user that you want the docker file to create in the container. 
 
 Edit the `enter_container.sh` script with the following paths:
 - `DATA_DIR=`: The directory where the HERCULES dataset is located

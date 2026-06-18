@@ -207,8 +207,6 @@ def submap_align(system_params: SystemParams, sm_params: SubmapAlignParams, sm_i
             try:   
                 # Call the registration routine
                 start_t = time.time()
-                if not system_params.use_roman_map_for_alignment:
-                    raise NotImplementedError
                 associations: np.ndarray = registration.register(submap_i.segments, submap_j.segments)
                 timing_list.append(time.time() - start_t)
                 

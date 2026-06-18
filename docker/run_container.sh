@@ -2,7 +2,7 @@ DATA_DIR='<FILL_IN>'
 REPO_DIR='<FILL_IN>'
 
 docker run -it \
-    --name="roman" \
+    --name="roman_baseline" \
     --net="host" \
     --privileged \
     --gpus 'all,"capabilities=compute,utility,graphics,display"' \
@@ -29,5 +29,5 @@ docker run -it \
     --volume="/usr/share/vulkan/icd.d:/usr/share/vulkan/icd.d:ro" \
     --volume="/etc/vulkan/icd.d:/etc/vulkan/icd.d:ro" \
     --volume="/usr/share/nvidia:/usr/share/nvidia:ro" \
-    roman \
+    roman_baseline \
     /bin/bash
