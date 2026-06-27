@@ -138,7 +138,7 @@ def run_slam(param_dir: str, output_dir: str | None, wandb_project: str, max_tim
     # Create output directories
     params_path = Path(param_dir)
     if output_dir is None:
-        output_path = params_path.parent.parent / "results" / params_path.name / run_name
+        output_path = params_path.parent.parent / "results" / params_path.name / (use_map if use_map is not None else run_name)
     else: output_path = Path(output_dir)
     os.makedirs(os.path.join(output_path, "map"), exist_ok=True)
     os.makedirs(os.path.join(output_path, "align"), exist_ok=True)
