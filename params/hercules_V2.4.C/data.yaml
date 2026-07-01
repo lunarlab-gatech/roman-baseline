@@ -40,7 +40,7 @@ depth_data:
 pose_data:
   # Load from csv to avoid expensive rosbag search
   type: "csv"
-  path: "odometry_LIO-SAM_FLU_frame.csv"
+  path: "odometry_FAST-LIVO2_FLU_frame.csv"
 
   # Time tolerance used to reject available data if no pose data is within the time tolerance value
   time_tol: 10000.0 # LIO-SAM stops reporting Keyposes when the robots stop, so this last keypose should be used for rest of sequence 
