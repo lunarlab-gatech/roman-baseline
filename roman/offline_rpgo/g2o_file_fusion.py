@@ -102,7 +102,11 @@ def create_config(robots, odometry_g2o_dir, submap_align_dir=None, align_file_na
         config['robots'].append({'robot': robot, 'letter': chr(ord('a') + i)})
         config['odometry'].append({'robot': robot, 'file': f'{odometry_g2o_dir}/{robot}.g2o'})
         if submap_align_dir is not None:
-            config['single_lc'].append({'robot': robot, 'file': f'{submap_align_dir}/{robot}_{robot}/{align_file_name}.g2o'})
+            lc_file = f'{submap_align_dir}/{robot}_{robot}/{align_file_name}.g2o'
+            if os.path.exists(lc_file):
+                config['single_lc'].append({'robot': robot, 'file': lc_file})
+            else:
+                print(f"Warning: intra-robot LC file not found for '{robot}', skipping intra-robot loop closures: {lc_file}")
             for j, robot2 in enumerate(robots):
                 if i >= j:
                     continue
