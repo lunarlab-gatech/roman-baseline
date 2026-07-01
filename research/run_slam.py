@@ -63,9 +63,10 @@ def log_nested(wandb_run: Run, d: dict, parent_key: str =""):
         else:
             wandb_run.log({full_key: v})
 
-def run_slam(param_dir: str, output_dir: str | None, wandb_project: str, max_time: int | None = None, 
-             skip_map: bool = False, use_map: str | None = None, skip_align: bool = False, 
-             skip_rpgo: bool = False, disable_wandb: bool = False) -> None:
+def run_slam(param_dir: str, output_dir: str | None, wandb_project: str, max_time: int | None = None,
+             skip_map: bool = False, use_map: str | None = None, skip_align: bool = False,
+             skip_rpgo: bool = False, disable_wandb: bool = False,
+             align_pairs: list[tuple[int, int]] | None = None) -> None:
     """ Method that runs the SLAM system """
 
     # Check input values
@@ -166,7 +167,8 @@ def run_slam(param_dir: str, output_dir: str | None, wandb_project: str, max_tim
     if not skip_align:
         for i in range(len(system_params.data_params.runs)):
             for j in range(i, len(system_params.data_params.runs)):
-                windows_alignment.append(RerunWrapperWindowAlignment(system_params.enable_rerun_viz, system_params.data_params.runs[i], system_params.data_params.runs[j]))
+                if align_pairs is None or (i, j) in align_pairs:
+                    windows_alignment.append(RerunWrapperWindowAlignment(system_params.enable_rerun_viz, system_params.data_params.runs[i], system_params.data_params.runs[j]))
 
     windows_mapping_merged: list[RerunWrapperWindow] = []
     if len(system_params.data_params.runs) == 2:
@@ -203,6 +205,8 @@ def run_slam(param_dir: str, output_dir: str | None, wandb_project: str, max_tim
         window_index = 0
         for i in range(len(system_params.data_params.runs)):
             for j in range(i, len(system_params.data_params.runs)):
+                if align_pairs is not None and (i, j) not in align_pairs:
+                    continue
 
                 print(f"Running alignment for {system_params.data_params.runs[i]}_{system_params.data_params.runs[j]}")
                 
@@ -407,7 +411,21 @@ if __name__ == '__main__':
     parser.add_argument('--skip-rpgo', action='store_true', help='Skip robust pose graph optimization')
     parser.add_argument('--disable-wandb', action='store_true', help='Skip logging to W&B')
     parser.add_argument('--use-map', type=str, help='Run name with map we want to use', default=None)
+    parser.add_argument('--align-pairs', type=int, nargs='+', default=[0, 1],
+                        help='Robot index pairs to run alignment for, specified as flat list of ints '
+                             '(e.g., --align-pairs 0 1 runs only robot 0 to robot 1; '
+                             '--align-pairs 0 1 1 2 runs pairs (0,1) and (1,2))')
     args = parser.parse_args()
-    
-    run_slam(args.params, args.output_dir, args.wandb_project, args.max_time, args.skip_map, 
-             args.use_map, args.skip_align, args.skip_rpgo, args.disable_wandb)
+
+    align_pairs = None
+    if args.align_pairs is not None:
+        if len(args.align_pairs) % 2 != 0:
+            parser.error('--align-pairs requires an even number of arguments (pairs of robot indices)')
+        align_pairs = [
+            (min(args.align_pairs[k], args.align_pairs[k + 1]),
+             max(args.align_pairs[k], args.align_pairs[k + 1]))
+            for k in range(0, len(args.align_pairs), 2)
+        ]
+
+    run_slam(args.params, args.output_dir, args.wandb_project, args.max_time, args.skip_map,
+             args.use_map, args.skip_align, args.skip_rpgo, args.disable_wandb, align_pairs)
