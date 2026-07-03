@@ -411,10 +411,11 @@ if __name__ == '__main__':
     parser.add_argument('--skip-rpgo', action='store_true', help='Skip robust pose graph optimization')
     parser.add_argument('--disable-wandb', action='store_true', help='Skip logging to W&B')
     parser.add_argument('--use-map', type=str, help='Run name with map we want to use', default=None)
-    parser.add_argument('--align-pairs', type=int, nargs='+', default=[0, 1],
+    parser.add_argument('--align-pairs', type=int, nargs='+', default=None,
                         help='Robot index pairs to run alignment for, specified as flat list of ints '
                              '(e.g., --align-pairs 0 1 runs only robot 0 to robot 1; '
-                             '--align-pairs 0 1 1 2 runs pairs (0,1) and (1,2))')
+                             '--align-pairs 0 1 1 2 runs pairs (0,1) and (1,2)). '
+                             'If not specified, alignment is run for every pair, including each robot with itself.')
     args = parser.parse_args()
 
     align_pairs = None
