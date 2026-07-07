@@ -56,6 +56,25 @@ class SegmentMinimalData(Object):
     def scattering(self, e=None):
         return self._scattering
 
+    def comm_payload_bytes(self, method: str = 'roman') -> int:
+        """
+        Size (bytes) of the segment data a robot would need to send another robot to run
+        registration with the given method. Excludes id, extent, first_seen, and last_seen,
+        none of which the roman method uses.
+        """
+        if method != 'roman':
+            raise NotImplementedError(f"comm_payload_bytes not implemented for method '{method}'")
+        fields = (
+            self.center, self.volume, self.linearity(),
+            self.planarity(), self.scattering(), self.semantic_descriptor,
+        )
+        total_bytes = 0
+        for field in fields:
+            arr = np.asarray(field)
+            assert arr.dtype == np.float64, f"Expected float64, got {arr.dtype}"
+            total_bytes += arr.nbytes
+        return total_bytes
+
 class Segment(Object):
 
     # TODO: separate from observation and from points class

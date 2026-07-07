@@ -37,6 +37,10 @@ class SubmapAlignResults:
     aligned_submaps_by_degree: np.ndarray
     alignment_success_num_by_degree: np.ndarray
 
+    # Bytes of submap data that would need to be communicated between robots to run
+    # registration (None if submap_align_params.single_robot_lc is True)
+    submap_data_size_bytes: int = None
+
     class AlignmentDegree(Enum):
         ZERO_SIXTY = 0
         SIXTY_ONEHUNDREDTWENTY = 1
@@ -137,6 +141,10 @@ def save_submap_align_results(results: SubmapAlignResults, submaps, roman_maps: 
         f.write(f"Total time: {np.sum(results.timing_list):.4f} seconds\n")
         f.write(f"Total number of objects: {np.sum([len(submap) for submap in submaps[0] + submaps[1]])}\n")
         f.write(f"Average number of obects per map: {np.mean([len(submap) for submap in submaps[0] + submaps[1]]):.2f}\n")
+
+    if results.submap_data_size_bytes is not None:
+        with open(results.submap_io.output_data_size, 'w') as f:
+            f.write(f"Total submap data size (bytes): {results.submap_data_size_bytes}\n")
     
     with open(results.submap_io.output_params, 'w') as f:
         f.write(f"{results.submap_align_params}")

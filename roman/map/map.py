@@ -120,6 +120,26 @@ class Submap:
     def has_gt(self):
         return self.pose_flu_gt is not None
 
+    def comm_payload_bytes(self, method: str = 'roman') -> int:
+        """
+        Size (bytes) of the data a robot would need to send another robot to run
+        registration and produce a usable RPGO loop closure for this submap: its segments'
+        data plus id, time, and pose_flu. Excludes segment_frame (a fixed string) and
+        pose_flu_gt (ground truth the sending robot wouldn't have).
+        """
+        segments_bytes = sum(seg.comm_payload_bytes(method) for seg in self.segments)
+
+        id_arr = np.asarray(self.id)
+        assert id_arr.dtype == np.int64, f"Expected int64, got {id_arr.dtype}"
+        submap_bytes = id_arr.nbytes
+
+        for field in (self.time, self.pose_flu):
+            arr = np.asarray(field)
+            assert arr.dtype == np.float64, f"Expected float64, got {arr.dtype}"
+            submap_bytes += arr.nbytes
+
+        return segments_bytes + submap_bytes
+
     def __len__(self):
         return len(self.segments)
 

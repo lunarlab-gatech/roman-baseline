@@ -136,6 +136,17 @@ def submap_align(system_params: SystemParams, sm_params: SubmapAlignParams, sm_i
     clipper_percent_associations = np.zeros((len(submaps[0]), len(submaps[1])))*np.nan
     submap_yaw_diff_mat = np.zeros((len(submaps[0]), len(submaps[1])))*np.nan
     timing_list = []
+
+    # Track how much data would need to be communicated between robots to run registration,
+    # i.e. each submap sent once, not resent per pair it gets compared against.
+    submap_data_size_bytes = None
+    if not sm_params.single_robot_lc:
+        assert sm_params.method == 'roman', \
+            f"Submap data size tracking is only implemented for method='roman', got '{sm_params.method}'"
+        submap_data_size_bytes = (
+            sum(sm.comm_payload_bytes(sm_params.method) for sm in submaps[0])
+            + sum(sm.comm_payload_bytes(sm_params.method) for sm in submaps[1])
+        )
     
     T_ij_mat = np.zeros((len(submaps[0]), len(submaps[1]), 4, 4))*np.nan
     T_ij_hat_mat = np.zeros((len(submaps[0]), len(submaps[1]), 4, 4))*np.nan
@@ -294,7 +305,8 @@ def submap_align(system_params: SystemParams, sm_params: SubmapAlignParams, sm_i
         submap_io=sm_io,
         overlapping_fov_mat=overlapping_fov_mat,
         aligned_submaps_by_degree=aligned_submaps_by_degree,
-        alignment_success_num_by_degree=alignment_success_num_by_degree
+        alignment_success_num_by_degree=alignment_success_num_by_degree,
+        submap_data_size_bytes=submap_data_size_bytes,
     )
     save_submap_align_results(results, submaps, maps)
     return results

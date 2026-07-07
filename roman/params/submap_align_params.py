@@ -119,6 +119,10 @@ class SubmapAlignInputOutput:
     @property
     def output_timing(self):
         return os.path.join(self.output_dir, f'{self.run_name}.timing.txt')
+
+    @property
+    def output_data_size(self):
+        return os.path.join(self.output_dir, f'{self.run_name}.data_size.txt')
     
     @property
     def output_params(self):
