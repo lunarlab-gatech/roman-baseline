@@ -64,14 +64,22 @@ class SegmentMinimalData(Object):
         """
         if method != 'roman':
             raise NotImplementedError(f"comm_payload_bytes not implemented for method '{method}'")
-        fields = (
-            self.center, self.volume, self.linearity(),
-            self.planarity(), self.scattering(), self.semantic_descriptor,
-        )
+        fields = {
+            "center": self.center, "volume": self.volume, "linearity": self.linearity(),
+            "planarity": self.planarity(), "scattering": self.scattering(),
+            "semantic_descriptor": self.semantic_descriptor,
+        }
         total_bytes = 0
-        for field in fields:
+        for name, field in fields.items():
             arr = np.asarray(field)
-            assert arr.dtype == np.float64, f"Expected float64, got {arr.dtype}"
+            if name == "semantic_descriptor":
+                assert arr.dtype in (np.float16, np.float32), \
+                    f"Expected float16 or float32 for '{name}', got {arr.dtype}"
+                if arr.dtype == np.float16:
+                    arr = arr.astype(np.float32)
+                assert arr.dtype == np.float32, f"Expected float32 for '{name}' after cast, got {arr.dtype}"
+            else:
+                assert arr.dtype == np.float64, f"Expected float64 for '{name}', got {arr.dtype}"
             total_bytes += arr.nbytes
         return total_bytes
 

@@ -130,12 +130,14 @@ class Submap:
         segments_bytes = sum(seg.comm_payload_bytes(method) for seg in self.segments)
 
         id_arr = np.asarray(self.id)
-        assert id_arr.dtype == np.int64, f"Expected int64, got {id_arr.dtype}"
+        assert id_arr.dtype == np.int64, f"Expected int64 for 'id', got {id_arr.dtype}"
         submap_bytes = id_arr.nbytes
 
-        for field in (self.time, self.pose_flu):
+        expected_dtypes = {"time": np.float128}
+        for name, field in (("time", self.time), ("pose_flu", self.pose_flu)):
             arr = np.asarray(field)
-            assert arr.dtype == np.float64, f"Expected float64, got {arr.dtype}"
+            expected_dtype = expected_dtypes.get(name, np.float64)
+            assert arr.dtype == expected_dtype, f"Expected {expected_dtype} for '{name}', got {arr.dtype}"
             submap_bytes += arr.nbytes
 
         return segments_bytes + submap_bytes
