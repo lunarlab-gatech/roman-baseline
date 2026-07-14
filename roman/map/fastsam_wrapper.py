@@ -16,6 +16,7 @@ import copy
 import cv2 as cv
 import math
 import numpy as np
+from typing import Optional
 import open3d as o3d
 import torch
 from torch.amp import autocast
@@ -236,8 +237,8 @@ class FastSAMWrapper():
         self.plane_filter_params = plane_filter_params
 
     @typechecked
-    def run(self, t: float, pose: np.ndarray, img: np.ndarray, img_depth: np.ndarray[float] = None,
-            lidar_pc_camera: np.ndarray = None) -> list[Observation]:
+    def run(self, t: float, pose: np.ndarray, img: np.ndarray, img_depth: Optional[np.ndarray] = None,
+            lidar_pc_camera: Optional[np.ndarray] = None) -> list[Observation]:
         """ Takes an image and returns filtered FastSAM masks as Observations. """
 
         self.observations: list[Observation] = []
