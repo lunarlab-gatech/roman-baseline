@@ -19,6 +19,7 @@ from typing import List, Tuple, Optional
 from functools import cached_property
 from pathlib import Path
 from .path_params import PathParams
+from .lidar_data import LidarNpyData
 from robotdatapy.data import ImgData, PoseData
 from robotdatapy.transform import T_FLURDF, T_RDFFLU
 from roman.utils import expandvars_recursive
@@ -52,6 +53,20 @@ class ImgDataParams:
     
     def get_path_to_img_times(self) -> Path:
         return self.path_params.get_full_path_to_robot_folder() / self.path_times
+
+@dataclass
+class LidarDataParams:
+
+    path: str
+    path_params: PathParams
+    time_tol: float = 0.5
+
+    @classmethod
+    def from_dict(cls, params_dict: dict, path_params: PathParams):
+        return cls(path_params=path_params, **params_dict)
+
+    def get_path_to_lidar_data(self) -> Path:
+        return self.path_params.get_full_path_to_robot_folder() / self.path
 
 @dataclass
 class PoseDataGTParams:
@@ -100,28 +115,40 @@ class PoseDataParams:
     path_params: PathParams
     T_camera_flu_dict: dict
     T_odombase_camera_dict: dict = None
-    
+    T_base_lidar_dict: dict = None
+
     @classmethod
     def from_dict(cls, params_dict: dict, path_params: PathParams):
-        params_dict_subset = {k: v for k, v in params_dict.items() 
-                       if k != 'T_camera_flu' and k != 'T_odombase_camera'}
+        params_dict_subset = {k: v for k, v in params_dict.items()
+                       if k != 'T_camera_flu' and k != 'T_odombase_camera' and k != 'T_base_lidar'}
         T_camera_flu_dict = params_dict['T_camera_flu']
         T_odombase_camera_dict = params_dict['T_odombase_camera'] \
             if 'T_odombase_camera' in params_dict else None
-        
-        return cls(params_dict=params_dict_subset, path_params=path_params, T_camera_flu_dict=T_camera_flu_dict, 
-                   T_odombase_camera_dict=T_odombase_camera_dict)
-        
+        T_base_lidar_dict = params_dict['T_base_lidar'] \
+            if 'T_base_lidar' in params_dict else None
+
+        return cls(params_dict=params_dict_subset, path_params=path_params, T_camera_flu_dict=T_camera_flu_dict,
+                   T_odombase_camera_dict=T_odombase_camera_dict, T_base_lidar_dict=T_base_lidar_dict)
+
     @property
     def T_camera_flu(self) -> np.array:
         return self._find_transformation(self.T_camera_flu_dict)
-    
+
     @property
     def T_odombase_camera(self) -> np.array:
         if self.T_odombase_camera_dict is not None:
             return self._find_transformation(self.T_odombase_camera_dict)
         else:
             return np.eye(4)
+
+    @property
+    def T_base_lidar(self) -> np.array | None:
+        """ Transformation from LiDAR frame to the odometry base (FLU) frame, or None if not
+        configured (i.e. this dataset doesn't use LiDAR). """
+        if self.T_base_lidar_dict is not None:
+            return self._find_transformation(self.T_base_lidar_dict)
+        else:
+            return None
         
     def load_pose_data(self, extra_key_vals: dict) -> PoseData:
         """
@@ -180,20 +207,23 @@ class PoseDataParams:
 class DataParams:
     
     img_data_params: ImgDataParams
-    depth_data_params: ImgDataParams
+    depth_data_params: Optional[ImgDataParams]
     pose_data_params: PoseDataParams
+    lidar_data_params: Optional[LidarDataParams] = None
     dt: float = 1/6
     runs: list = None
     run_env: str = None
     time_params: dict = None
     kitti: bool = False
-    
+
     def __post_init__(self):
         if self.time_params is not None:
             assert 'relative' in self.time_params['time'], "relative must be specified in params"
             assert 't0' in self.time_params['time'], "t0 must be specified in params"
             assert 'tf' in self.time_params['time'], "tf must be specified in params"
-        
+        assert self.depth_data_params is not None or self.lidar_data_params is not None, \
+            "DataParams must specify either depth_data or lidar_data."
+
     @classmethod
     def from_yaml(cls, yaml_path: str, path_params: PathParams):
         with open(yaml_path) as f:
@@ -201,14 +231,19 @@ class DataParams:
 
         return cls(
             ImgDataParams.from_dict(data['img_data'], path_params),
-            ImgDataParams.from_dict(data['depth_data'], path_params),
+            ImgDataParams.from_dict(data['depth_data'], path_params) if 'depth_data' in data else None,
             PoseDataParams.from_dict(data['pose_data'], path_params),
+            lidar_data_params=LidarDataParams.from_dict(data['lidar_data'], path_params) if 'lidar_data' in data else None,
             dt=data['dt'] if 'dt' in data else 1/6,
             runs=data['runs'] if 'runs' in data else None,
             run_env=data['run_env'] if 'run_env' in data else None,
             time_params=data['time_params'] if 'time_params' in data else None,
             kitti=data['kitti'] if 'kitti' in data else False
         )
+
+    @property
+    def use_lidar(self) -> bool:
+        return self.lidar_data_params is not None
         
     @cached_property
     def time_range(self) -> Tuple[float, float]:
@@ -242,10 +277,21 @@ class DataParams:
         """
         return self._load_img_data(color=True)
     
+    def load_lidar_data(self) -> LidarNpyData:
+        """
+        Loads LiDAR data.
+
+        Returns:
+            LidarNpyData: LiDAR data object.
+        """
+        assert self.lidar_data_params is not None, "No lidar_data configured in data.yaml."
+        path = expandvars_recursive(str(self.lidar_data_params.get_path_to_lidar_data()))
+        return LidarNpyData.from_npy_dir(path, time_tol=self.lidar_data_params.time_tol)
+
     def load_depth_data(self) -> ImgData:
         """
         Loads depth data.
-        
+
         Args:
             time_range (List[float, float]): Time range to load depth data.
 

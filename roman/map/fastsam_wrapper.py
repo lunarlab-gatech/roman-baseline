@@ -236,11 +236,12 @@ class FastSAMWrapper():
         self.plane_filter_params = plane_filter_params
 
     @typechecked
-    def run(self, t: float, pose: np.ndarray, img: np.ndarray, img_depth: np.ndarray[float] = None) -> list[Observation]:
+    def run(self, t: float, pose: np.ndarray, img: np.ndarray, img_depth: np.ndarray[float] = None,
+            lidar_pc_camera: np.ndarray = None) -> list[Observation]:
         """ Takes an image and returns filtered FastSAM masks as Observations. """
 
         self.observations: list[Observation] = []
-        
+
         # rotate image
         img_orig = img
         img = self.apply_rotation(img)
@@ -253,23 +254,53 @@ class FastSAMWrapper():
 
         if self.constant_ignore_mask is not None:
             ignore_mask = np.bitwise_or(ignore_mask, self.constant_ignore_mask) \
-                if ignore_mask is not None else self.constant_ignore_mask  
-        
+                if ignore_mask is not None else self.constant_ignore_mask
+
         # Run FastSAM
         masks: np.ndarray = self._process_img(img, ignore_mask=ignore_mask, keep_mask=keep_mask)
-        
+
         # Remove masks corresponding to dynamic objects
-        if self.params.enable_scene_flow_dynamic_obj_removal:
+        if self.params.enable_scene_flow_dynamic_obj_removal and img_depth is not None:
             masks = self.remove_dynamic_object_masks(masks, img_depth, pose)
+
+        # ================== Pre-project LiDAR points to image (once for all masks) ==================
+        lidar_proj = None
+        if lidar_pc_camera is not None and len(masks) > 0:
+            z_lidar = lidar_pc_camera[:, 2]
+            in_front = z_lidar > 0
+            pts_front = lidar_pc_camera[in_front]
+            z_front = z_lidar[in_front]
+
+            if len(pts_front) > 0:
+                u_lidar = (self.depth_cam_params.fx * pts_front[:, 0] / z_front + self.depth_cam_params.cx).astype(int)
+                v_lidar = (self.depth_cam_params.fy * pts_front[:, 1] / z_front + self.depth_cam_params.cy).astype(int)
+
+                H_mask, W_mask = int(self.depth_cam_params.height), int(self.depth_cam_params.width)
+                valid = (u_lidar >= 0) & (u_lidar < W_mask) & (v_lidar >= 0) & (v_lidar < H_mask)
+                u_lidar, v_lidar = u_lidar[valid], v_lidar[valid]
+                pts_front = pts_front[valid]
+
+                finite = np.isfinite(pts_front).all(axis=1)
+                u_lidar, v_lidar, pts_front = u_lidar[finite], v_lidar[finite], pts_front[finite]
+
+                if len(pts_front) > 0:
+                    lidar_proj = (pts_front, u_lidar, v_lidar)
 
         # ================== Generate Observations ==================
         for i, mask in enumerate(masks):
             mask = self.apply_rotation(mask, unrotate=True)
             mask = mask.astype(np.float32)
 
-            # ============= Extract point cloud of object from RGBD =============
+            # ============= Extract point cloud of object from LiDAR or RGBD =============
             pcd_array = None
-            if img_depth is not None:
+
+            if lidar_proj is not None:
+                # Extract LiDAR points falling within this mask
+                pts_valid, u_valid, v_valid = lidar_proj
+                in_mask = mask.astype(bool)[v_valid, u_valid]
+                pcd_test_array = pts_valid[in_mask]
+
+            elif img_depth is not None:
 
                 # Set depth to zero everywhere except detected object
                 depth_obj = copy.deepcopy(img_depth)
@@ -289,40 +320,45 @@ class FastSAMWrapper():
                     project_valid_depth_only=True
                 )
                 pcd_test_array = np.asarray(pcd_test.points)
-                pre_truncate_len = len(pcd_test_array)
-                pcd_test_array = pcd_test_array[pcd_test_array[:,2] < self.max_depth] # Remove points past max depth
-                # require some fraction of the points to be within the max depth
-                if len(pcd_test_array) < self.within_depth_frac*pre_truncate_len:
-                    continue
-                
-                # Remove non-finite points and downsample
-                pcd = o3d.geometry.PointCloud()
-                pcd.points = o3d.utility.Vector3dVector(pcd_test_array)
-                pcd.remove_non_finite_points()
+            else:
+                logger.info("WARNING: No LiDAR points or Depth Points! Skipping frame.")
+                break
 
-                # Downsample only if requested
-                if self.params.downsample_point_cloud:
-                    logger.debug(f"Downsampling point cloud with voxel size {self.voxel_size}")
-                    pcd = pcd.voxel_down_sample(voxel_size=self.voxel_size)
+            # ============= Shared point cloud filtering (max depth / voxel downsample) =============
+            pre_truncate_len = len(pcd_test_array)
+            pcd_test_array = pcd_test_array[pcd_test_array[:,2] < self.max_depth] # Remove points past max depth
+            # require some fraction of the points to be within the max depth
+            if len(pcd_test_array) < self.within_depth_frac*pre_truncate_len:
+                continue
 
-                if not pcd.is_empty():
-                    pcd_array = np.asarray(pcd.points)
-                if pcd_array is None:
+            # Remove non-finite points and downsample
+            pcd = o3d.geometry.PointCloud()
+            pcd.points = o3d.utility.Vector3dVector(pcd_test_array)
+            pcd.remove_non_finite_points()
+
+            # Downsample only if requested
+            if self.params.downsample_point_cloud:
+                logger.debug(f"Downsampling point cloud with voxel size {self.voxel_size}")
+                pcd = pcd.voxel_down_sample(voxel_size=self.voxel_size)
+
+            if not pcd.is_empty():
+                pcd_array = np.asarray(pcd.points)
+            if pcd_array is None:
+                continue
+
+            if self.plane_filter_params is not None:
+                # Create oriented bounding box
+                try:
+                    obb = o3d.geometry.OrientedBoundingBox.create_from_points(
+                            o3d.utility.Vector3dVector(pcd_array))
+                    extent = np.sort(obb.extent)[::-1] # in descending order
+                    if  extent[0] > self.plane_filter_params[0] and \
+                        extent[1] > self.plane_filter_params[1] and \
+                        extent[2] < self.plane_filter_params[2]:
+                            continue
+                except:
                     continue
-                
-                if self.plane_filter_params is not None:
-                    # Create oriented bounding box
-                    try:
-                        obb = o3d.geometry.OrientedBoundingBox.create_from_points(
-                                o3d.utility.Vector3dVector(pcd_array))
-                        extent = np.sort(obb.extent)[::-1] # in descending order
-                        if  extent[0] > self.plane_filter_params[0] and \
-                            extent[1] > self.plane_filter_params[1] and \
-                            extent[2] < self.plane_filter_params[2]:
-                                continue
-                    except:
-                        continue
-  
+
             # Generate downsampled mask
             mask_downsampled = np.array(cv.resize(
                 mask,
