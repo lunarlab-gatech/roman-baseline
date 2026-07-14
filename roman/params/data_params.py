@@ -59,7 +59,7 @@ class LidarDataParams:
 
     path: str
     path_params: PathParams
-    time_tol: float = 0.5
+    time_tol: Optional[float] = None
 
     @classmethod
     def from_dict(cls, params_dict: dict, path_params: PathParams):
@@ -286,7 +286,8 @@ class DataParams:
         """
         assert self.lidar_data_params is not None, "No lidar_data configured in data.yaml."
         path = expandvars_recursive(str(self.lidar_data_params.get_path_to_lidar_data()))
-        return LidarNpyData.from_npy_dir(path, time_tol=self.lidar_data_params.time_tol)
+        time_tol = self.lidar_data_params.time_tol if self.lidar_data_params.time_tol is not None else self.dt / 2.0
+        return LidarNpyData.from_npy_dir(path, time_tol=time_tol)
 
     def load_depth_data(self) -> ImgData:
         """
