@@ -7,5 +7,5 @@ path_params:
   path_to_robot_folder: "extract/files_for_roman_baseline/${ROBOT}/"
   dataset_version_number: "V1.0"
 
-  path_background_img: "environment.png"
-  background_img_x_edge: 691.216296 
+  path_background_img: "data/environment.png"
+  background_img_x_edge: 691.216296  # This is broken
