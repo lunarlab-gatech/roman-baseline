@@ -7,10 +7,10 @@ method: 'roman'
 # How to fuse similarity scores (geometric_mean, arithmetic_mean, product)
 fusion_method: 'geometric_mean'
 
-# Multiplied by 5x, so there is a chance to have enough objects in a submap in our Australia environment
+# Multiplied by 2x, so there is a chance to have enough objects in a submap in our Australia environment
 submap_radius: 30.0      
 
-# Multiplied by 5x to match submap_radius, simply because if the submaps are getting larger, then they should be more spread apart.
+# Multiplied by 2x to match submap_radius, simply because if the submaps are getting larger, then they should be more spread apart.
 submap_center_dist: 20.0 
 
 # Time threshold between submaps, submap will be created if this time has passed and submap_center_dist hasn't been traveled yet.
