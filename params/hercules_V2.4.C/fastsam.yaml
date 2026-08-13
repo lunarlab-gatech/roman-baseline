@@ -53,8 +53,8 @@ depth_data_type: float32
 # If 25% of point cloud of detected observation is not within max_depth, 
 # then observation is rejected.
 # For Hercules Dataset, depth is perfect & max depth is 16360, but leads to too big of arrays.
-# But, leaving at 7.5 causes issues with the very large Australian Environment.
-# Thus, increasing by 10x to 75.
+# But, leaving at 7.5 causes issues with the very large City Environment.
+# Thus, increasing by 2x to 15.
 max_depth: 15
 
 enable_scene_flow_dynamic_obj_removal: False
